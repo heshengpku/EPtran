@@ -1,0 +1,41 @@
+true
+5.e-7
+2000000
+true
+false
+2
+true
+false
+false
+true
+0
+1.
+1.
+
+1 ! i_new_start = true:  new start
+  !               false: restart
+
+2 ! dt
+3 ! ntstep
+
+4 ! i_flux_r = false: radial flux off
+  !            true:  radial flux on
+5 ! i_flux_E = false: energy flux off
+  !            true:  energy flux on
+6 ! i_Model = 0 const D_rr=0.1
+  !           1 energy independent Angioni model D(r)
+  !           2 energy dependent Angioni model D(r,E)
+  !           3 read dep(nE,ny,nr) from files, for DEP model
+  !           4 Pueschel model, only electrostatic part
+7 ! i_AE = false: AE off
+  !        true:  AE on
+8 ! i_pinch = false: energy pinch off
+  !           true:  energy pinch on
+9 !i_thermal_pinch_off = true:  turn off thermal pinch by set const E_c(r) = E_c(r/a=0.5)
+  !                      false: default, E_c(r) profile
+10! i_BC_1 = false: free BC at r_hat=1
+  !          true:  fixed BC at r_hat=1
+11! delta1, i_BC_1 should be set .true., then f_alpha=delta1*F_s at r_hat=1
+
+12! D_factor, default is 1., increase D matrix by D_factor
+13! A_factor, default is 1., increase A by D_factor
