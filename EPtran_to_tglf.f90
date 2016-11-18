@@ -23,10 +23,9 @@ module EPtran_to_tglf
                         aoLn_e_tglf_r,aoLT_e_tglf_r,aoLn_i_tglf_r,aoLT_i_tglf_r,&
                         aoLn_EP_r,aoLT_EP_r,betae_unit_tglf_r,xnue_tglf_r!,&
                         !vexb_shear_tglf_r,vpar_shear_e_tglf_r,vpar_shear_i_tglf_r
-  real,dimension(nn) :: kymark
 
-  !not used in TGLF
-  real,dimension(nn) :: B_unit,beta_unit_r,p_r,dlnpdr_r,c_s,rho_s,rho_star,chi_gB
+  !not TGLF input parameters
+  real,dimension(nn) :: kymark,B_unit,beta_unit_r,p_r,dlnpdr_r,c_s,rho_s,rho_star,chi_gB
   real,dimension(nn) :: omega_TAE,omega_plus,omega_minus
   
 end module EPtran_to_tglf
@@ -58,11 +57,11 @@ subroutine get_tglf_parameters
   dr = rmin/real(nr-1)
   
   !ion mass in uint of proton mass
-  mi_tglf = M_DT
+  mi_tglf = M_DT/2.0
 
   zeff_tglf = Zeff
 
-  m_alpha_tglf = m_alpha
+  m_alpha_tglf = m_alpha/2.0
   z_alpha_tglf = z_alpha
 
   !minor radius normalized by rmin
@@ -75,7 +74,6 @@ subroutine get_tglf_parameters
   i = 1
   drmajdr_tglf_r(i) = (Rmaj_rho(i+1)-Rmaj_rho(i))/dr
   do i = 2,nr-1
-    !drmajdr_tglf_r(i) = -delR0oa
     drmajdr_tglf_r(i) = (Rmaj_rho(i+1)-Rmaj_rho(i-1))/2./dr
   enddo
   i = nr
@@ -210,158 +208,87 @@ subroutine get_tglf_parameters
 
   if(dump_flag) then
     open(unit=2,file='EPtran_to_tglf.out',status='replace')
+    !just as TGLFEP input.profile format, 11.17.2016
+    write(2,*)-1.0,'  SIGN_BT'
+    write(2,*)-1.0,'  SIGN_IT'
+    write(2,*)nr-1,'  NR'
+    write(2,*)3,'  NS'
+    write(2,*)1,'  GEOMETRY_FLAG'
     write(2,*)'--------------------------------------------------------------'
-    write(2,*)'mi_tglf =',mi_tglf
+    write(2,*)'# electron species '
+    write(2,*)-1.0,'  ZS'
+    write(2,*)1./1836./2.,'  MASS m/m_D'
+    write(2,*)'# normalized density gradients: rlns'
+    write(2,10)aoLn_e_tglf_r(2:nr)
+    write(2,*)'# normalized temperature gradients: rlts'
+    write(2,10)aoLT_e_tglf_r(2:nr)
     write(2,*)'--------------------------------------------------------------'
-
+    write(2,*)'# ion species ',1
+    write(2,*)1.0,'  ZS' 
+    write(2,*)mi_tglf,'  MASS m/m_D'
+    write(2,*)'# normalized density: as'
+    write(2,10)ni_hat_tglf_r(2:nr)
+    write(2,*)'# normalized temperature: taus'
+    write(2,10)Ti_hat_tglf_r(2:nr)
+    write(2,*)'# normalized density gradients: rlns'
+    write(2,10)aoLn_i_tglf_r(2:nr)
+    write(2,*)'# normalized temperature gradients: rlts'
+    write(2,10)aoLT_i_tglf_r(2:nr)
     write(2,*)'--------------------------------------------------------------'
-    write(2,*)'zeff_tglf =',zeff_tglf
+    write(2,*)'# ion species ',2
+    write(2,*)z_alpha_tglf,'  ZS' 
+    write(2,*)m_alpha_tglf,'  MASS m/m_D'
+    write(2,*)'# normalized density: as'
+    write(2,10)n_EP_hat_r(2:nr)
+    write(2,*)'# normalized temperature: taus'
+    write(2,10)T_EP_hat_r(2:nr)
+    write(2,*)'# normalized density gradients: rlns'
+    write(2,10)aoLn_EP_r(2:nr)
+    write(2,*)'# normalized temperature gradients: rlts'
+    write(2,10)aoLT_EP_r(2:nr)
     write(2,*)'--------------------------------------------------------------'
-
+    write(2,*)'# Geometry '
+    write(2,*)'# minor radius: rmin'
+    write(2,10)r_hat_tglf_r(2:nr)
+    write(2,*)'# major radius: rmaj'
+    write(2,10)rmaj_hat_tglf_r(2:nr)
+    write(2,*)'# safety factor: q'
+    write(2,10)q_tglf_r(2:nr)
+    write(2,*)'# magnetic shear: shear'
+    write(2,10)s_hat_tglf_r(2:nr)
+    write(2,*)'# q_prime'
+    write(2,10)q_prime_tglf_r(2:nr)
+    write(2,*)'# p_prime'
+    write(2,10)p_prime_tglf_r(2:nr)
+    write(2,*)'# shift'
+    write(2,10)drmajdr_tglf_r(2:nr)
+    write(2,*)'# elogation: kappa'
+    write(2,10)kappa_tglf_r(2:nr)
+    write(2,*)'# shear in elogation: s_kappa'
+    write(2,10)s_kappa_tglf_r(2:nr)
+    write(2,*)'# triangularity: delta'
+    write(2,10)delta_tglf_r(2:nr)
+    write(2,*)'# shear in triangularity: s_delta'
+    write(2,10)s_delta_tglf_r(2:nr)
+    write(2,*)'# squareness: zeta'
+    do i = 2,nr
+      write(2,10)0.0
+    enddo
+    write(2,*)'# shear in squareness: s_zeta'
+    do i = 2,nr
+      write(2,10)0.0
+    enddo
     write(2,*)'--------------------------------------------------------------'
-    write(2,*)'r_hat'
-    write(2,10)r_hat_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'rmaj_hat'
-    write(2,10)rmaj_hat_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'drmajdr'
-    write(2,10)drmajdr_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'kappa'
-    write(2,10)kappa_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'s_kappa'
-    write(2,10)s_kappa_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'delta'
-    write(2,10)delta_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'s_delta'
-    write(2,10)s_delta_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'q'
-    write(2,10)q_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'s_hat'
-    write(2,10)s_hat_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'q_prime'
-    write(2,10)q_prime_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------' 
-    write(2,*)'p_prime'
-    write(2,10)p_prime_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'aoLn_e'
-    write(2,10)aoLn_e_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'aoLT_e'
-    write(2,10)aoLT_e_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'ni_hat'
-    write(2,10)ni_hat_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'Ti_hat'
-    write(2,10)Ti_hat_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'aoLn_i'
-    write(2,10)aoLn_i_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'aoLT_i'
-    write(2,10)aoLT_i_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'n_EP_hat'
-    write(2,10)n_EP_hat_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'T_EP_hat'
-    write(2,10)T_EP_hat_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'aoLn_EP'
-    write(2,10)aoLn_EP_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'aoLT_EP'
-    write(2,10)aoLT_EP_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'betae_unit'
-    write(2,10)betae_unit_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'xnue'
-    write(2,10)xnue_tglf_r
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'rho_star'
-    write(2,10)rho_star
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'ky_mark'
-    write(2,10)kymark
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'omega_TAE/(c_s/a)'
-    write(2,10)omega_TAE
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'omega_plus'
-    write(2,10)omega_plus
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'omega_minus'
-    write(2,10)omega_minus
-    write(2,*)'--------------------------------------------------------------'
-    
-    write(2,*)'--------------------------------------------------------------'
-    write(2,*)'chi_gB in m**2/sec'
-    write(2,10)chi_gB
-    write(2,*)'--------------------------------------------------------------'
+    write(2,*)'# effective ion charge: zeff'
+    do i = 2,nr
+      write(2,10)zeff_tglf
+    enddo
+    write(2,*)'# betae'
+    write(2,10)betae_unit_tglf_r(2:nr)
+    write(2,*)'# rho_star = rho_s/a'
+    write(2,10)rho_star(2:nr)
+    write(2,*)'# omega_TAE / (c_s/a)'
+    write(2,10)omega_TAE(2:nr)
 
     ! do i = 1,nr
     !   write(2,*)'--------------------------------------------------------------'

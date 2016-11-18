@@ -10,25 +10,6 @@ module EPtran_use_parameter
 
   implicit none
 
-    !!CONTROL PARAMETERS
-    real :: dt = 1.e-5       !time step
-    integer :: ntstep = 4e5 !number of time steps
-    logical :: i_new_start = .true.  !flag for restart
-
-    logical :: NBI_flag = .false. !NBI_flag
-
-    logical :: i_flux_r = .true.
-    logical :: i_flux_E = .false.
-    integer :: i_Model = 2
-    logical :: i_AE = .false.
-    logical :: i_pinch = .false.
-    logical :: i_thermal_pinch_off = .false.
-    logical :: i_BC_r1 = .true.
-    real :: delta1 = 0
-
-    real :: D_factor = 1.0
-    real :: A_factor = 1.0
-
     real :: m_alpha = 4.0  !mass of the energetic particle
     real :: z_alpha = 2.0  !charge of the energetic particle
 
@@ -62,6 +43,7 @@ module EPtran_use_parameter
     real :: Fpeak_n = 1.1
     real :: Fpeak_ei = 1.1
     integer :: use_t_equiv = 0
+    logical :: NBI_flag = .false. !NBI_flag
 
     !!OUTPUT PARAMETERS
     real :: beta_ped_percent

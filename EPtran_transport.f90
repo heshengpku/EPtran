@@ -33,19 +33,26 @@ subroutine EPtran_transport
   !--------------------------------------
   implicit none
 
+  !!CONTROL PARAMETERS
+  real :: dt        !time step
+  integer :: ntstep !number of time steps
+  logical :: i_new_start = .true.  !flag for restart
+  integer :: i_Model = 2
+  logical :: i_AE = .true.
+
+  logical :: i_flux_r = .true.
+  logical :: i_flux_E = .false.
+  logical :: i_pinch = .false.
+  logical :: i_thermal_pinch_off = .false.
+  logical :: i_BC_r1 = .true.
+  real :: delta1 = 0
+
+  real :: D_factor = 1.0
+  real :: A_factor = 1.0
+
   real :: err = 1.e-8 !the smallest real
   real,dimension(ny) :: check_y
   real,dimension(nE) :: check_E
-  real :: E_c_middle
-
-  real :: Q_fus
-  real, dimension(nr) :: V_prime_rho
-  real, dimension(nr) :: chi_eff
-  real, dimension(nr) :: D_bkg_Angioni  !diffusive part
-  real, dimension(nr) :: C_p_alpha      !pinch part
-  real, dimension(nr) :: D_bkg_Angioni_He
-  real, dimension(nr) :: C_p_He
-  real, dimension(nr) :: rg_n_alpha_th_rho  !AE density gradient threshold
 
   integer :: i,j,k,n
   integer :: ku,kd !k+1,k-1
@@ -65,13 +72,14 @@ subroutine EPtran_transport
   logical :: i_start_null ! .true.=start from null distribution, .false.=from S. D.
   integer :: N_source !the injected energy component of the source
 
+  real :: Q_fus
+  real, dimension(nr) :: V_prime_rho,chi_eff,D_bkg_Angioni,C_p_alpha,&
+                         D_bkg_Angioni_He,C_p_He
+
   real :: lambda0,Delta_lambda
   real :: Int_F_bpa
   real,dimension(ny) :: F_bpa !unnormalized F_bpa(lambda)
-
   real,dimension(nE,nr) :: nu_d
-
-  real :: f_error_max
 
   real :: TeoEalpha   ! T_e_rho(i)/E_alpha
   real :: EoTe         ! E/T_e_rho(i)
@@ -92,6 +100,24 @@ subroutine EPtran_transport
   real :: D_em_p,D_em_p_FLR,D_em_t
   real :: beta_square
 
+  integer :: threshold_flag !0 for density threshold, 1 for pressure threshold
+  real,dimension(nr) :: rg_n_alpha_th_rho,rg_p_alpha_th_rho  !AE gradient threshold
+  real :: dn_th,dp_th,D_AE
+  real,dimension(ny,nE,nr) :: D_ITG
+
+  logical :: i_F_cor
+  real :: C_R
+  real,dimension(nr) :: F_cor
+  real,dimension(nr) :: L_s_n_alpha_rho,L_s_T_alpha_rho,L_tran_n_alpha_rho
+  integer :: i_threshold
+  logical :: i_read_threshold
+
+  logical :: i_energy_AE !.true. = energy-dependent critical gradient model
+
+  real,dimension(nE,nr) :: G_AE
+  real :: eps_hat
+  real :: eps_hat_0
+  real :: Delta_eps_hat
   logical :: i_orbit ! .true.= Orbit Width effects
   integer :: irBC_inner,irBC_outer,ir_half,ir_i,ii
   real :: ir,ir_p,lambda_tp,Orbit_factor,D_orb_add
@@ -100,98 +126,46 @@ subroutine EPtran_transport
   real,dimension(nE) :: v_par0
   real,dimension(nE,nr) :: Delta_orb_hat
 
-  real :: InPar !the total fusion particle
-  real :: InPower !the total fusion power
-  real,dimension(nr) :: source_rho !the alpha particle source in 10**19/sec
-  real,dimension(nr) :: flux_source_rho !the source flux in 10**19/m**2/sec
-  real,dimension(nr) :: flow_source_rho !the source flow in 10**19/sec
-  real,dimension(nr) :: sink_rho !the alpha particle sink and He source in 10**19/sec
-  real,dimension(nr) :: sinke_rho !the slowing down energy
-
-  real,dimension(nr) :: p_alpha_rho   !slowing down pressure profile
-  real,dimension(nr) :: n_tran_alpha_rho  !transported denstiy profile
-  real,dimension(nr) :: T_tran_alpha_rho  !transported temperature profile
-  real,dimension(nr) :: p_tran_alpha_rho  !transported pressure profile
-  real,dimension(nr) :: rg_n_tran_alpha_rho  !density gradient
-  real,dimension(nr) :: rg_T_tran_alpha_rho  !temperature gradient
-  real,dimension(nr) :: rg_p_tran_alpha_rho  !pressure gradient
-
-  !real,dimension(nr) :: flux
-  real,dimension(nr) :: flow_rho        !the particle flow
-  real,dimension(nr) :: flow_check_rho  !the particle check flow
-  real,dimension(nr) :: flow_energy_rho !the energy flow
-
-  real,dimension(nr) :: n_s_He_rho     !the untransported He ash density
-  real,dimension(nr) :: n_tran_He_rho  !the transported He ash density
-  real,dimension(nr) :: flux_He_rho        !the He ash particle flux
-  real,dimension(nr) :: flow_He_rho        !the He ash particle flow
-
-  real,dimension(nE,nr) :: F_s
-  real,dimension(ny,nE,nr) :: f_alpha
-
-  real,dimension(ny,nE,nr) :: D_rr,A,C_rE,C_EE
-
-  integer :: threshold_flag !0 for density threshold, 1 for pressure threshold
-  real,dimension(ny,nE,nr) :: D_ITG
-  real :: D_AE
-  real :: dn_th
-
-  real,dimension(nr) :: rg_p_alpha_th_rho
-  real :: dp_th
-
-  real :: C_R
-  real,dimension(nr) :: F_cor
-  real,dimension(nr) :: L_s_n_alpha_rho,L_s_T_alpha_rho,L_tran_n_alpha_rho
-  integer :: i_threshold
-
-  logical :: i_energy_AE !.true. = energy-dependent critical gradient model
-
-  real,dimension(nE,nr) :: G_AE
-  real :: eps_hat
-  real :: eps_hat_0
-  real :: Delta_eps_hat
-
-  real,dimension(ny,nE,nr) :: Gamma_r
-  real,dimension(ny,nE,nr) :: Gamma_E
-
-  real,dimension(ny,nE,nr) :: f_alpha_bk
-
-  real,dimension(ny,nE,nr) :: term_csd  !term of classical slowing down
-  real,dimension(ny,nE,nr) :: term_s  !term of alpha source
-
   integer,dimension(:),allocatable :: j_NBI !the injected energy of NBI
 
-  real,dimension(ny,nE,nr) :: term_flux_r  !term of flux_r
-  real,dimension(ny,nE,nr) :: term_flux_E  !term of flux_E
-  real,dimension(ny,nE,nr) :: term_flux_y  !term of flux_y
-  real,dimension(ny,nE,nr) :: term_pas  !term of pitch angle scattering
+  !alpha species (slowing down)
+  real,dimension(nr) :: p_alpha_rho,source_rho,flux_source_rho,&
+                        flow_source_rho,sink_rho,sinke_rho
 
-  logical :: i_distribution_out !.true.=write out the distributions in .dat files
+  !alpha species (transported)
+  real,dimension(nr) :: n_tran_alpha_rho,T_tran_alpha_rho,p_tran_alpha_rho,&
+                 rg_n_tran_alpha_rho,rg_T_tran_alpha_rho,rg_p_tran_alpha_rho
+  real,dimension(nr) :: flow_rho,flow_check_rho,flow_energy_rho
+
+  !He ash species
+  real,dimension(nr) :: n_He_rho     !the untransported He ash density
+  real,dimension(nr) :: n_tran_He_rho,flux_He_rho,flow_He_rho
+
+  !distribution
+  real,dimension(nE,nr) :: F_s
+  real,dimension(ny,nE,nr) :: f_alpha,f_alpha_bk,&
+                              term_csd,term_s,term_pas,&
+                              D_rr,A,C_rE,C_EE,Gamma_r,Gamma_E,&
+                              term_flux_r,term_flux_E,term_flux_y
+
+  real :: f_error_max
+
+  logical :: i_distribution_out = .false. !.true.=write out the distributions in .dat files
   logical :: iexist
   !--------------------------------------------------------------
   !Control Parameters
   !--------------------------------------------------------------
 
-  !!5.11.2015
-  i_isotropic = .true. !isotropic source
-  !i_isotropic = .false. !beam-like source for NBI
-  !i_scattering = .true. !pitch angle scattering
-  i_scattering = .false. !no pitch angle scattering
-  !!5.29.2015
-  i_energy_AE = .false. !energy independent
-  !i_energy_AE = .true. !energy dependent
-  !!9.30.2015
-  i_orbit = .false. !no Orbit Width effect
-  !i_orbit = .true. !Orbit Width effect
-  !!6.26.2015
-  i_start_null = .true. !start from null distribution
+  i_start_null = .true.  !start from null distribution
   !i_start_null = .false. !start from slowing down distribution
-  !i_distribution_out = .true. !.true.=write out the distributions in .dat files
-  i_distribution_out = .false.
   threshold_flag = 0 !AE density gradient threshold
   !threshold_flag = 1 !AE pressure gradient threshold
   N_source = 1 !default, one injected energy component source
   !N_source = 3 !DIII-D, three injected energy component source
+  i_F_cor = .false. !F_cor == 1
+  !i_F_cor = .true. !F_cor included with C_R
+  i_read_threshold = .false. !internal threshold
+  !i_read_threshold = .true.  !read threshold from file
 
   inquire(file='EPtran_transport_control',exist=iexist)
   if(iexist) then
@@ -200,20 +174,16 @@ subroutine EPtran_transport
     read(1,*) i_new_start
     read(1,*) dt
     read(1,*) ntstep
-    read(1,*) i_flux_r
-    read(1,*) i_flux_E
     read(1,*) i_Model
     read(1,*) i_AE
-    read(1,*) i_pinch
-    read(1,*) i_thermal_pinch_off
-    read(1,*) i_BC_r1
-    read(1,*) delta1
-    read(1,*) D_factor
-    read(1,*) A_factor
+    read(1,*) i_energy_AE
+    read(1,*) i_orbit
+    read(1,*) i_isotropic
+    read(1,*) i_scattering
 
     close(1)
   else
-    print *, 'EPtran_transport_control file is not found'
+    print *, 'EPtran_transport_control file not found'
     stop
   endif
 
@@ -251,8 +221,7 @@ subroutine EPtran_transport
   !source setting, no transport
   !--------------------------------------------------------------
   if(i_thermal_pinch_off) then !turn off the thermal pinch, E_c(r) = E_c(r/a=0.5)
-    E_c_middle = E_c_hat_rho((nr+1)/2)
-    E_c_hat_rho(:) = E_c_middle
+    E_c_hat_rho(:) = E_c_hat_rho((nr+1)/2)
   endif
 
   ! static alpha slowing down distribution
@@ -334,47 +303,63 @@ subroutine EPtran_transport
   C_p_He(:) = -2.0
   C_p_He(1) = 0.
 
-  if(NBI_flag) then!i_threshold = 9  !NBI DIIID caseD   SD-beam-like
-    i_threshold = 0
-    select case(i_threshold)
-    case(1) !new GYRO gamma_AE+ITG > gamma_ITG/TEM
-      do i = 1,nr
-        if(rho_hat(i) .ge. 0.45) &
-          rg_n_alpha_th_rho(i) = 0.0975*(1.0+(rho_hat(i)-0.45)**2/(0.1235)**2)
-        if(rho_hat(i) .lt. 0.45) &
-          rg_n_alpha_th_rho(i) = 0.0975*(1.0+(rho_hat(i)-0.45)**2/(0.1482)**2)
-      enddo
-    case(2) !TGLF n = 3, gamma_AE > 0
-      do i = 1,nr
-        if(rho_hat(i) .ge. 0.45) &
-          rg_n_alpha_th_rho(i) = 0.0487*(1.0+(rho_hat(i)-0.45)**2/(0.0975)**2)
-        if(rho_hat(i) .lt. 0.45) &
-          rg_n_alpha_th_rho(i) = 0.0487*(1.0+(rho_hat(i)-0.45)**2/(0.0817)**2)
-      enddo
-    case(3) !TGLF worst-n, gamma_AE > 0
-      do i = 1,nr
-        if(rho_hat(i) .ge. 0.45) &
-          rg_n_alpha_th_rho(i) = 0.0456*(1.0+(rho_hat(i)-0.45)**2/(0.1049)**2)
-        if(rho_hat(i) .lt. 0.45) &
-          rg_n_alpha_th_rho(i) = 0.0456*(1.0+(rho_hat(i)-0.45)**2/(0.1372)**2)
-      enddo
-    case default !original GYRO gamma_AE > gamma_ITG/TEM
-      do i = 1,nr
-        if(rho_hat(i) .ge. 0.5) &
-          rg_n_alpha_th_rho(i) = 0.075*(1.0+(rho_hat(i)-0.5)**2/(0.0903)**2)
-        if(rho_hat(i) .lt. 0.5) &
-          rg_n_alpha_th_rho(i) = 0.075*(1.0+(rho_hat(i)-0.5)**2/(0.1035)**2)
-      enddo
-    end select
-  else  !i_threshold = 7
-    do i = 1,nr
-      if(rho_hat(i) .ge. 0.4) &
-        rg_n_alpha_th_rho(i) = 0.017*(1.0+(rho_hat(i)-0.4)**2/(0.2287)**2)
-      if(rho_hat(i) .lt. 0.4) &
-        rg_n_alpha_th_rho(i) = 0.017*(1.0+(rho_hat(i)-0.4)**2/(0.125)**2)
-    enddo
-  endif
+  if(i_read_threshold) then
 
+    inquire(file='dnth',exist=iexist)
+    if(iexist) then
+      open(unit=1,file='dnth',status='old')
+      do i = 1,nr
+        read(1,*) rg_n_alpha_th_rho(i)
+      enddo
+      close(1)
+    else
+      print *, 'dnth file is not found'
+      stop
+    endif
+
+  else
+
+    if(NBI_flag) then!i_threshold = 9  !NBI DIIID caseD   SD-beam-like
+      i_threshold = 0
+      select case(i_threshold)
+      case(1) !new GYRO gamma_AE+ITG > gamma_ITG/TEM
+        do i = 1,nr
+          if(rho_hat(i) .ge. 0.45) &
+            rg_n_alpha_th_rho(i) = 0.0975*(1.0+(rho_hat(i)-0.45)**2/(0.1235)**2)
+          if(rho_hat(i) .lt. 0.45) &
+            rg_n_alpha_th_rho(i) = 0.0975*(1.0+(rho_hat(i)-0.45)**2/(0.1482)**2)
+        enddo
+      case(2) !TGLF n = 3, gamma_AE > 0
+        do i = 1,nr
+          if(rho_hat(i) .ge. 0.45) &
+            rg_n_alpha_th_rho(i) = 0.0487*(1.0+(rho_hat(i)-0.45)**2/(0.0975)**2)
+          if(rho_hat(i) .lt. 0.45) &
+            rg_n_alpha_th_rho(i) = 0.0487*(1.0+(rho_hat(i)-0.45)**2/(0.0817)**2)
+        enddo
+      case(3) !TGLF worst-n, gamma_AE > 0
+        do i = 1,nr
+          if(rho_hat(i) .ge. 0.45) &
+            rg_n_alpha_th_rho(i) = 0.0456*(1.0+(rho_hat(i)-0.45)**2/(0.1049)**2)
+          if(rho_hat(i) .lt. 0.45) &
+            rg_n_alpha_th_rho(i) = 0.0456*(1.0+(rho_hat(i)-0.45)**2/(0.1372)**2)
+        enddo
+      case default !original GYRO gamma_AE > gamma_ITG/TEM
+        do i = 1,nr
+          if(rho_hat(i) .ge. 0.5) &
+            rg_n_alpha_th_rho(i) = 0.075*(1.0+(rho_hat(i)-0.5)**2/(0.0903)**2)
+          if(rho_hat(i) .lt. 0.5) &
+            rg_n_alpha_th_rho(i) = 0.075*(1.0+(rho_hat(i)-0.5)**2/(0.1035)**2)
+        enddo
+      end select
+    else  !ITER alpha case
+      !test model for rg_n_alpha_th_rho
+      do i = 1,nr
+        rg_n_alpha_th_rho(i) = 0.5*0.030659160*(1.+5.*(rho_hat(i)-rho_hat(25))**2)
+      enddo
+    endif
+
+  endif
+  
   !5.29.2015, develop an energy dependent critical gradient stiff diffusion model
   if(i_energy_AE) then
     Delta_eps_hat = 1./3.
@@ -716,13 +701,13 @@ subroutine EPtran_transport
 
   C_R = 2.1 !From TGLF simulations
 
+  L_s_n_alpha_rho = n_alpha_rho/(rdiff(n_alpha_rho)/dr) !08.29.16
+  L_s_T_alpha_rho = T_alpha_equiv_rho/(rdiff(T_alpha_equiv_rho)/dr)
+  L_s_n_alpha_rho(1) = L_s_n_alpha_rho(2) !avoid NaN at r/a = 0
+  L_s_T_alpha_rho(1) = L_s_T_alpha_rho(2)
+
   if(i_AE) then !D_ITG = D_rr for AE on
     D_ITG = D_rr
-
-    L_s_n_alpha_rho = n_alpha_rho/(rdiff(n_alpha_rho)/dr) !08.29.16
-    L_s_T_alpha_rho = T_alpha_equiv_rho/(rdiff(T_alpha_equiv_rho)/dr)
-    L_s_n_alpha_rho(1) = L_s_n_alpha_rho(2) !avoid NaN at r/a = 0
-    L_s_T_alpha_rho(1) = L_s_T_alpha_rho(2)
 
     if(threshold_flag .eq. 1) then
     !calculate the pressure gradient threshold,7.13.2014
@@ -913,18 +898,30 @@ subroutine EPtran_transport
             enddo
             !$OMP END PARALLEL DO
 
-            rg_n_tran_alpha_rho = rdiff(n_tran_alpha_rho)/dr
-
-            !08.29.16, CDG correction factor
-            L_tran_n_alpha_rho = n_tran_alpha_rho/rg_n_tran_alpha_rho
-            L_tran_n_alpha_rho(1) = L_tran_n_alpha_rho(2)
-
+            !rg_n_tran_alpha_rho = rdiff(n_tran_alpha_rho)/dr
+            !10.11.2016, change the diff method to avoid the small instability
+            rg_n_tran_alpha_rho(1) = 0.
             !$OMP PARALLEL DO PRIVATE(i)
-            do i = 1,nr
-              F_cor(i) = (1.0 + L_s_n_alpha_rho(i)*(1./L_s_T_alpha_rho(i)-C_R/Rmaj_rho(i)))/ &
-                         (1.0 + L_tran_n_alpha_rho(i)*(1./L_s_T_alpha_rho(i)-C_R/Rmaj_rho(i)))
+            do i = 2,nr
+              rg_n_tran_alpha_rho(i) = -(n_tran_alpha_rho(i)-n_tran_alpha_rho(i-1))/dr
             enddo
             !$OMP END PARALLEL DO
+
+            if(i_F_cor) then
+
+              !08.29.16, CDG correction factor
+              L_tran_n_alpha_rho = n_tran_alpha_rho/rg_n_tran_alpha_rho
+              L_tran_n_alpha_rho(1) = L_tran_n_alpha_rho(2)
+
+              !$OMP PARALLEL DO PRIVATE(i)
+              do i = 1,nr
+                F_cor(i) = (1.0 + L_s_n_alpha_rho(i)*(1./L_s_T_alpha_rho(i)-C_R/Rmaj_rho(i)))/ &
+                           (1.0 + L_tran_n_alpha_rho(i)*(1./L_s_T_alpha_rho(i)-C_R/Rmaj_rho(i)))
+              enddo
+              !$OMP END PARALLEL DO
+            else
+              F_cor = 1.0
+            endif
 
             !$OMP PARALLEL DO PRIVATE(i,j,k,dn_th)
             do i = 1,nr
@@ -954,7 +951,14 @@ subroutine EPtran_transport
             enddo
             !$OMP END PARALLEL DO
 
-            rg_p_tran_alpha_rho = rdiff(p_tran_alpha_rho)/dr
+            !rg_p_tran_alpha_rho = rdiff(p_tran_alpha_rho)/dr
+
+            rg_p_tran_alpha_rho(1) = 0.
+            !$OMP PARALLEL DO PRIVATE(i)
+            do i = 2,nr
+              rg_p_tran_alpha_rho(i) = -(p_tran_alpha_rho(i)-p_tran_alpha_rho(i-1))/dr
+            enddo
+            !$OMP END PARALLEL DO
 
             !$OMP PARALLEL DO PRIVATE(i,j,k,dp_th)
             do i = 1,nr
@@ -1057,16 +1061,12 @@ subroutine EPtran_transport
 
         endif
 
-        !set radial flux term 1/V'*d{V'*Gamma_r}/dr=1/V'*(dV'/dr)*Gamma_r + d(Gamma_r)/dr
-
-        !Because Gamma_r(i=1)=0, the first term is 0. d(Gamma_r)/dr=(Gamma_r(k,j,i+1)-Gamma_r(k,j,i))/dr
-        !Gamma_r(i) is actually the flux at i-1/2, so d(Gamma_r)/dr(i=1) = Gamma_r(k,j,2)/(dr/2)
-        !BC 1/V'*d{V'*Gamma_r}/dr => 2.*Gamma_r(i=2)/dr @r/a = 0,
+        !set radial flux term 1/V'*d{V'*Gamma_r}/dr
         !$OMP PARALLEL DO PRIVATE(j,k)
         do j = 1,nE
           do k = 1,ny
-            term_flux_r(k,j,1) = 2.*Gamma_r(k,j,2)/dr
-            !term_flux_r(k,j,1) = 4.*Gamma_r(k,j,2)/dr  !6.14.2015
+            ! term_flux_r(k,j,1) = 2.*Gamma_r(k,j,2)/dr
+            term_flux_r(k,j,1) = 4.*Gamma_r(k,j,2)/dr  !6.14.2015
           enddo
         enddo
         !$OMP END PARALLEL DO
@@ -1080,19 +1080,25 @@ subroutine EPtran_transport
                                    *(V_prime_rho(i+1)-V_prime_rho(i-1))/2./dr&
                                    *(Gamma_r(k,j,i)+Gamma_r(k,j,i+1))/2.&
                                    +(Gamma_r(k,j,i+1)-Gamma_r(k,j,i))/dr
+
+              ! new diff-method, 10.12.2016, almost the same
+              ! term_flux_r(k,j,i) = 1./V_prime_rho(i)/dr&
+              !                      *((V_prime_rho(i)+V_prime_rho(i+1))/2.&
+              !                      *Gamma_r(k,j,i+1) - &
+              !                      (V_prime_rho(i-1)+V_prime_rho(i))/2.&
+              !                      *Gamma_r(k,j,i))
             enddo
           enddo
         enddo
         !$OMP END PARALLEL DO
-        !boundary condition
+        !boundary condition, d(Gamma_r)/dr = 0 @ r/a = 1
         i = nr
         !$OMP PARALLEL DO PRIVATE(j,k)
         do j = 1,nE
           do k = 1,ny
-            term_flux_r(k,j,i) = 1./V_prime_rho(i)&
-                                 *(V_prime_rho(i)-V_prime_rho(i-1))/dr&
-                                 *Gamma_r(k,j,i)&
-                                 +(Gamma_r(k,j,i)-Gamma_r(k,j,i-1))/dr
+            term_flux_r(k,j,i) = 1./V_prime_rho(i)/dr&
+                                 *((V_prime_rho(i)-V_prime_rho(i-1))&
+                                 *Gamma_r(k,j,i))
           enddo
         enddo
         !$OMP END PARALLEL DO
@@ -1142,7 +1148,7 @@ subroutine EPtran_transport
         enddo
         !$OMP END PARALLEL DO
 
-        !set energy flux term 1/V_E*d{V_E*f}/dE, dE = dE-lambda/E*d(lambda)
+        !set energy flux term 1/V_E*d{V_E*Gamma_E}/dE, dE = dE-lambda/E*d(lambda)
         !the first term : term_flux_E = d(Gamma_E)/dE - Gamma_E/2/E
         !for V_E = 1/sqrt(E(1-lambda)), 2015.7.2
         !$OMP PARALLEL DO PRIVATE(k,j,i)
@@ -1331,6 +1337,10 @@ subroutine EPtran_transport
         write(4,*) 'The density gradient threshold'
       else
         write(4,*) 'The pressure gradient threshold'
+      endif
+
+      if(i_F_cor) then
+        write(4,*) 'F_cor on with C_R = ',C_R
       endif
 
       if(i_energy_AE) then
@@ -1787,12 +1797,6 @@ subroutine EPtran_transport
   write(4,*) '--------------------------------------------------------------'
   write(4,10) flow_source_rho
 
-  !The total source particles, sum(S0_rho(i)*V_prime(i)*dr)
-  InPar = sum(source_rho)
-  write(4,*) '--------------------------------------------------------------'
-  write(4,*) 'The total source alpha particles in 10**19/sec,',InPar
-  write(4,*) '--------------------------------------------------------------'
-
   !The source fusion power
   write(4,*) '--------------------------------------------------------------'
   write(4,*) 'The alpha source fusion power in MW'
@@ -1804,12 +1808,6 @@ subroutine EPtran_transport
   write(4,*) 'The source energy flow in MW'
   write(4,*) '--------------------------------------------------------------'
   write(4,10) flow_source_rho*E_alpha*1.6022
-
-  !The total fusion power, sum(S0_rho(i)*V_prime(i)*E_alpha)
-  InPower = InPar*E_alpha*1.6022
-  write(4,*) '--------------------------------------------------------------'
-  write(4,*) 'The total fusion power in MW,',InPower
-  write(4,*) '--------------------------------------------------------------'
 
 !!!11.12.14
   !The alpha particles sink and the He source
@@ -1863,19 +1861,19 @@ subroutine EPtran_transport
   write(4,*) '--------------------------------------------------------------'
   write(4,*) 'The He ash density profile (no alpha transport) in 10**19/m**3'
   write(4,*) '--------------------------------------------------------------'
-  n_s_He_rho(nr) = 0.
-  n_s_He_rho(nr-1) = ((flux_source_rho(nr)/D_bkg_Angioni_He(nr) &
+  n_He_rho(nr) = 0.
+  n_He_rho(nr-1) = ((flux_source_rho(nr)/D_bkg_Angioni_He(nr) &
                     +flux_source_rho(nr-1)/D_bkg_Angioni_He(nr-1))/2. &
                     *(rho_hat(nr)-rho_hat(nr-1))*rmin)/ &
            (1.+C_p_He(nr-1)*(rho_hat(nr)-rho_hat(nr-1))*rmin/Rmaj_rho(nr-1))
   do i = nr-1,2,-1
-    n_s_He_rho(i-1) = n_s_He_rho(i+1)  &
-                     -n_s_He_rho(i)*C_p_He(i)/Rmaj_rho(i)&
+    n_He_rho(i-1) = n_He_rho(i+1)  &
+                     -n_He_rho(i)*C_p_He(i)/Rmaj_rho(i)&
                      *(rho_hat(i+1)-rho_hat(i-1))*rmin &
                      +flux_source_rho(i)/D_bkg_Angioni_He(i)&
                      *(rho_hat(i+1)-rho_hat(i-1))*rmin
   enddo
-  write(4,10) n_s_He_rho
+  write(4,10) n_He_rho
 
   !the He ash density profiles
   write(4,*) '--------------------------------------------------------------'

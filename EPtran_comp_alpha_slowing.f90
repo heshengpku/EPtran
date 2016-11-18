@@ -64,16 +64,23 @@ subroutine EPtran_comp_alpha_slowing
   ! enddo
 
   if(NBI_flag) then
-    !NBI
+    !NBI, D
     m_alpha = 2.0
     z_alpha = 1.0
+
+    !Correct setting, should use it after testing
+    !Z1 = 1. !For D3D-NBI case in pure D plasma
+    !Z1 = 5./6. !For ITER-NBI case
+
+    !Setting error in ALPHA code
     Z1=(5./3.) &
      *(M_DT/4.)/(M_DT/2.5)
-    !Z1=1. !the correct setting, should use it after testing
+    !m_alpha = M_DT
   else
-    !alpha particles
+    !ITER alpha particles
     m_alpha = 4.0
     z_alpha = 2.0
+    ! in 50%-50% D-T
     Z1 = 5./3.
   endif
   
@@ -148,41 +155,41 @@ subroutine EPtran_comp_alpha_slowing
   n_alpha_ave_rho(1)=n_alpha_ave_rho(2)
 
 
-! compute the increase in energy flux over simple 3/2 T_alpha convection
+! ! compute the increase in energy flux over simple 3/2 T_alpha convection
 
-  n_en = 1000
-!   n_en_max = 200
-  n_en_max = 1000
-  !print *, 'n_en'
+!   n_en = 1000
+! !   n_en_max = 200
+!   n_en_max = 1000
+!   !print *, 'n_en'
  
-  !print *, 'Convec_factor'
-!  do i=1,nr
-    i=5
-!    i=25
-!    i=45
-    print *, 'I4/I2=',I4(i)/I2(i)
-    print *, 'T_e_rho=',T_e_rho(i)
-    print *, 'E_c_hat_rho=',E_c_hat_rho(i)
-    Numer=0.0
-    Denom=0.0
-    do i_en = 1,n_en_max
-      En = (real(i_en)-0.5)/real(n_en)
-      EnoTe = En*E_alpha*10**3/T_e_rho(i)
-      G_D=exp(-8.14E-5*EnoTe**4+3.77E-3*EnoTe**3-0.0553*EnoTe**2+0.036*EnoTe+0.45)
- !      if(EnoTe .le. 2.7) G_D =1.25  !Angioni-Peters Fig 2 Eq. 32  
- !test   passed G_D = 1.0 test
- !      G_D=1.0
-       if(EnoTe .le. 2.7) then
-         G_D=1.0
-         if(EnoTe .gt. 0.3) G_D = 0.25*(EnoTe-0.3)/(2.7-0.3)+1.0
-       endif
-      Numer=Numer+1./real(n_en)*En*G_D*En**0.5/(E_c_hat_rho(i)**1.5+En**1.5)
-      Denom=Denom+1./real(n_en)*G_D*En**0.5/(E_c_hat_rho(i)**1.5+En**1.5)
-    !  print *, i_en,En,EnoTe,G_D,Numer,Denom,Numer/Denom
-    enddo
-    Convec_factor = Numer/Denom/(I4(i)/I2(i))
-    print *, i,Numer,Denom,Convec_factor
-!   enddo
+!   !print *, 'Convec_factor'
+! !  do i=1,nr
+!     i=5
+! !    i=25
+! !    i=45
+!     print *, 'I4/I2=',I4(i)/I2(i)
+!     print *, 'T_e_rho=',T_e_rho(i)
+!     print *, 'E_c_hat_rho=',E_c_hat_rho(i)
+!     Numer=0.0
+!     Denom=0.0
+!     do i_en = 1,n_en_max
+!       En = (real(i_en)-0.5)/real(n_en)
+!       EnoTe = En*E_alpha*10**3/T_e_rho(i)
+!       G_D=exp(-8.14E-5*EnoTe**4+3.77E-3*EnoTe**3-0.0553*EnoTe**2+0.036*EnoTe+0.45)
+!  !      if(EnoTe .le. 2.7) G_D =1.25  !Angioni-Peters Fig 2 Eq. 32  
+!  !test   passed G_D = 1.0 test
+!  !      G_D=1.0
+!        if(EnoTe .le. 2.7) then
+!          G_D=1.0
+!          if(EnoTe .gt. 0.3) G_D = 0.25*(EnoTe-0.3)/(2.7-0.3)+1.0
+!        endif
+!       Numer=Numer+1./real(n_en)*En*G_D*En**0.5/(E_c_hat_rho(i)**1.5+En**1.5)
+!       Denom=Denom+1./real(n_en)*G_D*En**0.5/(E_c_hat_rho(i)**1.5+En**1.5)
+!     !  print *, i_en,En,EnoTe,G_D,Numer,Denom,Numer/Denom
+!     enddo
+!     Convec_factor = Numer/Denom/(I4(i)/I2(i))
+!     print *, i,Numer,Denom,Convec_factor
+! !   enddo
 
 
 end subroutine EPtran_comp_alpha_slowing

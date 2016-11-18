@@ -28,6 +28,9 @@ subroutine EPtran_comp_eq_plasma
   logical :: iexist
   real :: dummy
   character(len=80) :: comment
+
+  real,dimension(nr) :: q_pc
+  real :: x
   !--------------------------------------
 
 
@@ -109,6 +112,11 @@ subroutine EPtran_comp_eq_plasma
         endif
       enddo
     endif
+
+    q_pc = 1.+(rho_hat)**2*(q_1-1.) !eps_q = 0. and rho_q = 0.
+
+    x = 1.0  !Different q-profiles
+    q_rho = x*q_rho + (1.-x)*q_pc 
 
   !Shafranov shifted major radius in meters
     do i = 1,nr
@@ -487,7 +495,7 @@ subroutine EPtran_comp_eq_plasma
       beta_N_glob =2. !override
       beta_N_ped = .5 !override
       beta_ped_percent = 1.0 !override
-      ! print *, 'beta_N_glob, beta_N_ped, beta_ped_percent not meaningful for NBI_flag=1'
+      !print *, 'beta_N_glob, beta_N_ped, beta_ped_percent not meaningful for NBI_flag=1'
 
     else
 

@@ -63,7 +63,7 @@ subroutine EPtran_read_input
     
     else
 
-      print *, 'EPtran_input file is not found'
+      print *, 'EPtran_input file not found'
       stop
 
     endif
