@@ -200,7 +200,11 @@ subroutine get_tglf_parameters
   kymark = n*q_tglf_r/r_hat_tglf_r*rho_star
 
   !omega_TAE/(c_s/a) = sqrt(2/beta_e/ni_hat)/2/q/(R/a)
-  omega_TAE = (2./betae_unit_tglf_r/ni_hat_tglf_r)**0.5/2./q_tglf_r/rmaj_hat_tglf_r
+  ! omega_TAE = (2./betae_unit_tglf_r/ni_hat_tglf_r)**0.5/2./q_tglf_r/rmaj_hat_tglf_r
+
+  !4.24.2017
+  !omega_TAE/(c_s/a) = sqrt(2/beta_e)/2/q/(R/a)
+  omega_TAE = (2./betae_unit_tglf_r)**0.5/2./q_tglf_r/rmaj_hat_tglf_r
 
   !omega_plus[minus] = omega_TAE/sqrt(1-[+]2r/R)
   omega_plus  = omega_TAE / (1. - 2.*r_hat_tglf_r/rmaj_hat_tglf_r)**0.5
@@ -285,8 +289,9 @@ subroutine get_tglf_parameters
     enddo
     write(2,*)'# betae'
     write(2,10)betae_unit_tglf_r(2:nr)
-    write(2,*)'# rho_star = rho_s/a'
-    write(2,10)rho_star(2:nr)
+    !write(2,*)'# rho_star = rho_s/a', 5/4/2017
+    write(2,*)'# ky = (nq/r)*rho_s for n = 1'
+    write(2,10)rho_star(2:nr)*q_tglf_r(2:nr)/r_hat_tglf_r(2:nr)
     write(2,*)'# omega_TAE / (c_s/a)'
     write(2,10)omega_TAE(2:nr)
 

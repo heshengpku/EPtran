@@ -5,16 +5,7 @@
 # Define compilers and flags.
 # Compilers and flags
 
-FC     = ftn 
-
-FMATH  = -s real64
-FOPT   = -O3 -hfp3
-FDEBUG = -eD -Ktrap=fp -m 1
-FOMP   = 
-FNOMP  =
-
-# Archive 
-ARCH = ar cr
+include ${GACODE_ROOT}/shared/install/make.inc.${GACODE_PLATFORM}
 
 ifeq ($(OPT),debug)
    FFLAGS=${FDEBUG}
