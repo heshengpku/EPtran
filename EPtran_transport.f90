@@ -45,7 +45,7 @@ subroutine EPtran_transport
   logical :: i_pinch = .false.
   logical :: i_thermal_pinch_off = .false.
   logical :: i_BC_r1 = .true.
-  real :: delta1 = 0
+  real :: delta1 = 0.
 
   real :: D_factor = 1.0
   real :: A_factor = 1.0
